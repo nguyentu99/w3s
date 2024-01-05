@@ -1,0 +1,177 @@
+.tuna-contact {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.tuna-contact td, th {
+	text-align: left;
+	padding: 8px;
+}
+
+.tuna-contact tr:nth-child(even) {
+	background-color: #dddddd;
+}
+
+/* ---------------Animation---------------- */
+
+.slit-in-vertical {
+	-webkit-animation: slit-in-vertical 0.45s ease-out both;
+	animation: slit-in-vertical 0.45s ease-out both;
+}
+
+@-webkit-keyframes slit-in-vertical {
+	0% {
+		-webkit-transform: translateZ(-800px) rotateY(90deg);
+		transform: translateZ(-800px) rotateY(90deg);
+		opacity: 0;
+	}
+	54% {
+		-webkit-transform: translateZ(-160px) rotateY(87deg);
+		transform: translateZ(-160px) rotateY(87deg);
+		opacity: 1;
+	}
+	100% {
+		-webkit-transform: translateZ(0) rotateY(0);
+		transform: translateZ(0) rotateY(0);
+	}
+}
+@keyframes slit-in-vertical {
+	0% {
+		-webkit-transform: translateZ(-800px) rotateY(90deg);
+		transform: translateZ(-800px) rotateY(90deg);
+		opacity: 0;
+	}
+	54% {
+		-webkit-transform: translateZ(-160px) rotateY(87deg);
+		transform: translateZ(-160px) rotateY(87deg);
+		opacity: 1;
+	}
+	100% {
+		-webkit-transform: translateZ(0) rotateY(0);
+		transform: translateZ(0) rotateY(0);
+	}
+}
+
+/*---------------#region Alert--------------- */
+
+#dialogoverlay{
+	display: none;
+	opacity: .8;
+	position: fixed;
+	top: 0px;
+	left: 0px;
+	background: #707070;
+	width: 100%;
+	z-index: 10;
+}
+
+#dialogbox{
+	display: none;
+	position: absolute;
+	background: #fff;
+	border-radius:7px;
+	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.575);
+	transition: 0.3s;
+	width: 40%;
+	z-index: 10;
+	top:30%!important;
+	left: 0;
+	right: 0;
+	margin: auto;
+}
+
+.pure-material-button-contained {
+	position: relative;
+	display: inline-block;
+	box-sizing: border-box;
+	border: none;
+	border-radius: 4px;
+	padding: 0 16px;
+	min-width: 64px;
+	height: 36px;
+	vertical-align: middle;
+	text-align: center;
+	text-overflow: ellipsis;
+	text-transform: uppercase;
+	background-color: #dd4b39;
+	color: #fff;
+	box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 36px;
+	transition: box-shadow 0.2s;
+}
+
+.pure-material-button-contained::-moz-focus-inner {
+	border: none;
+}
+
+/* ---------------Overlay--------------- */
+
+.pure-material-button-contained:hover::before {
+	opacity: 0.08;
+}
+
+.pure-material-button-contained:focus::before {
+	opacity: 0.24;
+}
+
+.pure-material-button-contained:hover:focus::before {
+	opacity: 0.3;
+}
+
+.pure-material-button-contained:disabled::before {
+	opacity: 0;
+}
+
+.pure-material-button-contained:disabled::after {
+	opacity: 0;
+}
+
+#dialogbox > div{
+	background:#FFF;
+	margin:8px;
+}
+
+#dialogbox > div > #dialogboxhead{
+	background: rgb(0, 77, 70);
+	font-size:19px;
+	padding:10px;
+	color:rgb(255, 255, 255);
+	font-family: Verdana, Geneva, Tahoma, sans-serif ;
+}
+
+#dialogbox > div > #dialogboxbody{
+	background:#fff;
+	padding:20px;
+	color:#000;
+	font-family: Verdana, Geneva, Tahoma, sans-serif ;
+}
+
+#dialogbox > div > #dialogboxfoot{
+	background: #fff;
+	padding:10px;
+	text-align:right;
+}
+
+.cancel {
+	margin: 0 1rem;
+}
+/*#endregion Alert*/
+.popup-close {
+	width:25px;
+	height:25px;
+	padding-top:3px;
+	display:inline-block;
+	position:absolute;
+	top:0px;
+	right:0px;
+	-webkit-transform:translate(50%, -50%);
+	transform:translate(50%, -50%);
+	border-radius:1000px;
+	background:rgba(0,0,0,0.8);
+	font-size:15px;
+	text-align:center;
+	line-height:100%;
+	color:#fff;
+}

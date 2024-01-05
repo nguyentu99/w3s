@@ -1,0 +1,7 @@
+name = Cassiopeia_contact
+description = Cassiopeia_contact
+
+package = Cassiopeia
+core = 7.x
+version = "7.x-1.0"
+datestamp = "1419029284"

@@ -1,0 +1,38 @@
+<?php
+
+
+
+/**
+ * Implements hook_menu()
+ */
+function cassiopeia_3s_menu() {
+  $items = array();
+
+  $items['admin/config/cassiopeia/3s'] = array(
+    'type' => MENU_NORMAL_ITEM,
+    'title' => t('General 3s configuration'),
+    'page callback' => array('drupal_get_form'),
+    'page arguments' => array('cassiopeia_3s_config_form'),
+    'access arguments' => array('cassiopeia_3s module'),
+    'file' => 'cassiopeia_3s.inc',
+  );
+
+  return $items;
+}
+
+
+
+/**
+ * Implements hook_permission().
+ */
+function cassiopeia_3s_permission() {
+  return array(
+    'cassiopeia module' => array(
+      'title' => t('cassiopeia_3s module'),
+      'description' => t('Access for Cassiopeia 3S module'),
+    )
+  );
+}
+
+
+

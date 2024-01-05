@@ -1,0 +1,150 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function cassiopeia_simplenews_menu() {
+  $items = array();
+  $items['admin/config/cassiopeia/simplenews'] = array(
+    'type' => MENU_NORMAL_ITEM,
+    'title' => t('Simplenews configuration'),
+    'page callback' => array('drupal_get_form'),
+    'page arguments' => array('cassiopeia_simplenews_config_form'),
+    'access arguments' => array('cassiopeia module'),
+    'file' => 'cassiopeia_simplenews.inc',
+  );
+  return $items;
+}
+
+function cassiopeia_simplenews_theme($existing, $type, $theme, $path) {
+  $path = drupal_get_path('module', 'cassiopeia_simplenews') . '/templates';
+  $items = array(
+    'cassiopeia_simplenews_from' => array(
+      'render element' => 'form',
+      'template' => 'cassiopeia_simplenews_from',
+      'path' => drupal_get_path('module', 'cassiopeia_simplenews') . '/templates/form'
+    )
+  );
+  return $items;
+}
+
+function cassiopeia_simplenews_from ($form, $form_state) {
+  $form =  array();
+  $form['#attributes'] = array('class' => array('form-inline'));
+  $form['email'] = array(
+    '#type' => 'textfield',
+    '#attributes' => array('placeholder'=> 'Nhập địa chỉ mail của bạn'),
+    '#theme_wrappers' => array(),
+    '#prefix' => '<div class="form-group"><div class="input-group"><span class="input-group-addon"><i class="glyphicon glyphicon-envelope"></i></span>',
+    '#suffix' => '</div></div>',
+    '#element_validate' => array('cassiopeia_simplenews_from_email_validate'),
+  );
+  $form['#theme'] = array('cassiopeia_simplenews_from');
+  $form['submit'] = array('#type' => 'submit', '#value' => 'Đăng ký');
+
+  return $form;
+}
+
+function cassiopeia_simplenews_from_email_validate ($element, &$form_state, $form) {
+
+  if (empty($element['#value'])) {
+    form_error($element, 'Địa chỉ email không được bỏ trống');
+  }else {
+    if(!valid_email_address($element['#value'])){
+      form_error($element, 'Địa chỉ email không hợp lệ');
+    }else {
+      try {
+        $emails = db_select('simplenews_emails', 'simplenews_emails')
+          ->fields('simplenews_emails')
+          ->condition('email', 'mrvdphuong@gmail.com','=')
+          ->execute()
+          ->fetchAll();
+        if (!empty($emails)) {
+          form_error($element, 'Địa chỉ email đã tồn tại vui lòng chọn địa chỉ email khác');
+        }
+      }catch (Exception $e) {
+         form_error($element, 'Địa chỉ email không hợp lệ');
+      }
+    }
+  }
+}
+
+function cassiopeia_simplenews_from_submit ($form, $form_state){
+
+  $_simplenews_node_send_mail = variable_get('simplenews_node_send_mail');
+  $_simplenews_node_category = variable_get('simplenews_node_category', array());
+  if(!empty($_simplenews_node_send_mail) && !empty($_simplenews_node_category)) {
+    $transaction = db_transaction();
+    try {
+      $id = db_insert('simplenews_emails') // Table name no longer needs {}
+      ->fields(array(
+        'email' => $form_state['values']['email'],
+        'status' => 1,
+        'created' => REQUEST_TIME,
+      ))
+        ->execute();
+      if ($id) {
+        $nid = db_insert('simplenews_node_types')
+        ->fields(array(
+          'uid'=>$id,
+          'contentType' =>'article'
+        )) ->execute();
+
+        foreach ($_simplenews_node_category as $_simplenews_node_category_key => $_simplenews_node_category_value) {
+          $tid = db_insert('simplenews_categorys')
+          ->fields(array(
+            'uid'=>$id,
+            'contentCategory' => $_simplenews_node_category_value
+          )) ->execute();
+
+        }
+        drupal_set_message('Cảm ơn quý khách, chúng tôi sẽ liên hệ với quý khách trong thời gian sớm nhất.');
+      }
+
+    }catch (Exception $e) {
+      $transaction->rollback();
+      drupal_set_message('Hệ thống đang bận vui lòng quai lại sau ít phút.');
+    }
+  }
+}
+
+
+/**
+ * Implements hook_node_insert().
+ */
+function cassiopeia_simplenews_node_insert($node)
+{
+  if($node->type == 'article') {
+    if (!empty($node->field_tx_article['und'][0]['tid'])) {
+        $_simplenews_node_send_mail = variable_get('simplenews_node_send_mail');
+        $_simplenews_node_category = variable_get('simplenews_node_category', array());
+        if (!empty($_simplenews_node_send_mail) && !empty($_simplenews_node_category) && in_array ($node->field_tx_article['und'][0]['tid'], $_simplenews_node_category)) {
+          $emails = array();
+          $result = array();
+          $emai_query = db_select('simplenews_emails', 'simplenews_emails');
+          $emai_query ->fields('simplenews_emails');
+          $emai_query->join('simplenews_node_types', 'simplenews_node_types', 'simplenews_node_types.uid = simplenews_emails.id');
+          $emai_query->fields('simplenews_node_types', array('contentType'));
+          $emai_query->join('simplenews_categorys', 'simplenews_categorys', 'simplenews_categorys.uid = simplenews_emails.id');
+          $emai_query->fields('simplenews_categorys', array('contentCategory'));
+          $emai_query->condition('simplenews_node_types.contentType', 'article','=');
+          $emai_query->condition('simplenews_categorys.contentCategory', $_simplenews_node_category,'IN');
+          $emai_query->condition('status', 1,'=');
+          $_result = $emai_query->execute();
+          foreach ($_result as $value) {
+            $result[] = $value;
+          }
+          foreach ($result as $key => $value) {
+            if (!in_array($value->email, $emails)) {
+              $emails[] =  $value->email;
+            }
+          }
+          foreach ($emails as $email_key => $email_value) {
+            drupal_mail('cassiopeia', 'simplenews', $email_value , 'vi', array('data'=>array('node'=>$node)));
+          }
+        }
+    }
+  }
+}
+
+

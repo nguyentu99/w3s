@@ -1,0 +1,205 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function cassiopeia_contact_menu() {
+	$items = [];
+
+	$items['admin/cassiopeia/contact'] = array(
+		'type' => MENU_CALLBACK,
+		'page callback' => 'cassiopeia_admin_contact_page_callback',
+		'title' => t('Contact'),
+		'access arguments' => array('cassiopeia module'),
+		'file' => 'cassiopeia_contact.inc',
+	);
+
+	$items['admin/cassiopeia/contact/delete/%contact_delete'] = [
+		'type' => MENU_CALLBACK,
+		'page callback' => 'cassiopeia_delete_contact_callback',
+		'page arguments' => [4],
+		'access arguments' => [4],
+		'title' => t('delete'),
+		'file' => 'cassiopeia_contact.inc',
+	];
+
+	return $items;
+}
+
+function contact_delete_load($param) {
+	try {
+		$deleted = db_delete('cassiopeia_contact')
+			->condition('id', $param)
+			->execute();
+
+		return $deleted;
+	} catch (Exception $e) {
+		drupal_set_message($e, 'Delete error');
+	}
+}
+
+/**
+ * Implements hook_theme().
+ */
+function cassiopeia_contact_theme($existing, $type, $theme, $path) {
+	$themes = [
+		'cassiopeia_contact_form' => [
+			'render element' => 'form',
+			'template' => 'cassiopeia_contact_form',
+			'path' => drupal_get_path('module', 'cassiopeia_contact') . '/templates/forms',
+		],
+	];
+
+	return $themes;
+}
+
+
+/**
+ * Form liên hệ
+ * $cassiopeia_contact_form = drupal_get_form('cassiopeia_contact_form');
+ * $cassiopeia_contact_form = drupal_render($cassiopeia_contact_form);
+ * print($cassiopeia_contact_form);
+ */
+function cassiopeia_contact_form($form, $form_state) {
+	$form = [];
+
+	$form['name'] = [
+		'#type' => 'textfield',
+		'#required' => TRUE,
+		'#attributes' => [
+			'placeholder' => t('Full name'),
+		],
+	];
+
+	$form['phone'] = [
+		'#type' => 'textfield',
+		'#required' => TRUE,
+		'#attributes' => [
+			'placeholder' => t('Phone number'),
+		],
+	];
+
+	$form['email'] = [
+		'#type' => 'textfield',
+		'#required' => TRUE,
+		'#attributes' => [
+			'placeholder' => 'Email',
+		],
+	];
+
+	$form['message'] = [
+		'#type' => 'textarea',
+		'#attributes' => [
+			'rows' => 2,
+			'placeholder' => t('Message ...'),
+		],
+	];
+
+	$form['submit'] = [
+		'#type' => 'submit',
+		'#value' => t('Send information'),
+		'#attributes' => [
+			'class' => ['btn btn-large'],
+		],
+	];
+
+	$form['#theme'] = ['cassiopeia_contact_form'];
+
+	return $form;
+}
+
+function cassiopeia_contact_form_submit($form, $form_state) {
+	$transaction = db_transaction();
+	try {
+		db_insert('cassiopeia_contact')
+			->fields([
+				'name' => $form_state['values']['name'],
+				'email' => $form_state['values']['email'],
+				'phone' => $form_state['values']['phone'],
+				'message' => $form_state['values']['message'],
+				'created' => REQUEST_TIME,
+			])->execute();
+
+		drupal_set_message(t('Gửi thông tin thành công, chúng tôi sẽ liên hệ bạn sớm nhất'));
+	} catch (Exception $e) {
+		drupal_set_message('Gửi thông tin không thành công', 'errors');
+		$transaction->rollback();
+	}
+}
+
+function cassiopeia_contact_form_validate($form, &$form_state) {
+	$elements = array('name','email', 'phone');
+	foreach ($elements as $element) {
+		if (empty($form_state['values'][$element])) {
+			form_set_error($element);
+		}
+	}
+	if (!filter_var($form_state['values']['email'], FILTER_VALIDATE_EMAIL)) {
+		form_set_error('email');
+		drupal_set_message('Invalid email format');
+	}
+	if (!empty(preg_match('/^[0-9]{10}+$/', $form_state['values']['phone']))) {
+		form_set_error('Phone');
+		drupal_set_message('Invalid phone format');
+	}
+}
+// Hết form liên hệ
+
+/**
+ * custom loading
+ * <div class="loading-custom-tuna">
+<div id="overlay-3s"></div>
+<div class="loading-3s">
+<div class="spinner-3s"></div>
+</div>
+</div>
+<style>
+#overlay-3s {
+position: absolute;
+left: 0;
+top: 0;
+width: 100%;
+z-index: 1;
+height: 100vh;
+background:#fff;
+}
+
+.loading-3s {
+position:absolute;
+top:0px;
+right:0px;
+bottom:0px;
+left:0px;
+height: 100vh;
+display: flex;
+align-items: center;
+z-index: 2;
+justify-content: space-around;
+
+}
+.spinner-3s {
+margin: 0 10px;
+width: 50px;
+height: 50px;
+border-radius: 50%;
+border: 4px solid #f3f3f3;
+border-top: 4px solid red;
+animation: rotating-spinner 1s linear infinite;
+}
+
+@keyframes rotating-spinner {
+from {
+transform: rotate(0deg);
+}
+
+to {
+transform: rotate(360deg);
+}
+}
+</style>
+<script>
+$(window).load(function(){
+$('.loading-custom-tuna').fadeOut();
+});
+</script>
+ */

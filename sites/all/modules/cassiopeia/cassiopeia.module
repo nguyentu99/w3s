@@ -1,0 +1,415 @@
+<?php
+
+
+function cassiopeia_init() {
+	drupal_add_js(drupal_get_path('module', 'cassiopeia') . '/js/libs/number_format/number_format.js');
+	drupal_add_css(drupal_get_path('module', 'cassiopeia') . '/js/libs/jquery-confirm/jquery-confirm.min.css');;
+	drupal_add_js(drupal_get_path('module', 'cassiopeia') . '/js/libs/jquery-confirm/jquery-confirm.min.js');
+}
+
+
+/**
+ * Implements hook_menu()
+ */
+function cassiopeia_menu() {
+	$items = [];
+	$items['home'] = [
+		'type' => MENU_CALLBACK,
+		'page callback' => 'cassiopeia_home_page_callback',
+		'title' => t('Home'),
+		'access arguments' => ['access content'],
+		'file' => 'cassiopeia.inc',
+	];
+
+	$items['about-us'] = [
+		'type' => MENU_CALLBACK,
+		'page callback' => 'cassiopeia_about_us_page_callback',
+		'title' => t('About us'),
+		'access arguments' => ['access content'],
+		'file' => 'cassiopeia.inc',
+	];
+
+	$items['admin/cassiopeia/dashboard'] = [
+		'type' => MENU_CALLBACK,
+		'page callback' => 'cassiopeia_dashboard_page_callback',
+		'title' => t('Dashboard'),
+		'access arguments' => ['cassiopeia module'],
+		'file' => 'cassiopeia.inc',
+	];
+
+	$items['admin/config/cassiopeia'] = [
+		'title' => 'Cassiopeia',
+		'description' => 'Cassiopeia tools.',
+		'page callback' => 'system_admin_menu_block_page',
+		'access arguments' => ['cassiopeia module'],
+		'file' => 'system.admin.inc',
+		'file path' => drupal_get_path('module', 'system'),
+	];
+
+	$items['admin/config/cassiopeia/general'] = [
+		'type' => MENU_NORMAL_ITEM,
+		'title' => t('General configuration'),
+		'page callback' => ['drupal_get_form'],
+		'page arguments' => ['cassiopeia_config_form'],
+		'access arguments' => ['cassiopeia module'],
+		'file' => 'cassiopeia.inc',
+	];
+
+	$items['cassiopeia/ajax'] = [
+		'type' => MENU_CALLBACK,
+		'page callback' => 'cassiopeia_ajax_page',
+		'delivery callback' => 'drupal_json_output',
+		'access arguments' => ['access content'],
+		'file' => 'cassiopeia.inc',
+	];
+
+	return $items;
+}
+
+
+/**
+ * Implements hook_permission().
+ */
+function cassiopeia_permission() {
+	return [
+		'cassiopeia module' => [
+			'title' => t('cassiopeia module'),
+			'description' => t('Access for Cassiopeia module'),
+		],
+	];
+}
+
+function _cassiopeia_admin_theme() {
+	return 'cassiopeia_admin_theme';
+}
+
+// =----- alter -------------
+
+/**
+ * Implements hook_menu_alter().
+ */
+function cassiopeia_menu_alter(&$items) {
+	//  $items['taxonomy/term/%taxonomy_term']['module'] = 'cassiopeia';
+	$items['taxonomy/term/%taxonomy_term']['page callback'] = '_cassiopeia_tvi_render_term_view';
+	$items['taxonomy/term/%taxonomy_term']['page arguments'] = [2];
+	$items['node/%node']['page callback'] = '_cassiopeia_node_render_view';
+	$items['node/%node']['page arguments'] = [1];
+}
+
+/**
+ * Implements hook_variable_info().
+ */
+
+function cassiopeia_variable_info($options) {
+}
+
+
+// =----- End alter -------------
+
+function _cassiopeia_node_render_view($node) {
+	global $user;
+	if (is_object($node)) {
+		$nid = $node->nid;
+	}
+	else {
+		$node = node_load($node);
+	}
+	if (module_exists('metatag')) {
+		metatag_entity_view($node, 'node', 'full', NULL);
+	}
+	if ($node->type == 'ctype_product') {
+		return _cassiopeia_render_theme('module', 'cassiopeia', 'templates/nodes/node_product.tpl.php', ['node' => $node]);
+	}
+	elseif ($node->type == 'ctype_sound') {
+		return drupal_not_found();
+	}
+
+	return node_page_view($node);
+}
+
+function _cassiopeia_tvi_render_term_view($term, $depth = NULL) {
+	if (is_object($term)) {
+		$tid = $term->tid;
+	}
+	else {
+		$term = taxonomy_term_load($term);
+	}
+	if (module_exists('metatag')) {
+		metatag_entity_view($term, 'taxonomy_term', 'full', NULL);
+	}
+	if ($term->vocabulary_machine_name == 'tx_article') {
+		//    return _cassiopeia_render_theme('module', 'cassiopeia', 'templates/terms/page-tx-article.tpl.php', array('term' => $term));
+	}
+
+	module_load_include('inc', 'taxonomy', 'taxonomy.pages');
+	return taxonomy_term_page($term);
+}
+
+
+function cassiopeia_theme($existing, $type, $theme, $path) {
+	$themes = [
+		'cassiopeia_table_drag_components' => [
+			'render element' => 'element',
+		],
+	];
+
+	return $themes;
+}
+
+function theme_cassiopeia_table_drag_components($vars) {
+	$element = $vars['element'];
+
+	drupal_add_tabledrag($vars['element']['#id'] . '-table', 'order', 'sibling', 'item-row-weight');
+
+	$header = [
+		'label' => t('label'),
+		'weight' => t('Weight'),
+	];
+
+	$rows = [];
+	foreach (element_children($element) as $key) {
+		$row = [];
+		$row['data'] = [];
+		foreach ($header as $fieldname => $title) {
+			$row['data'][] = drupal_render($element[$key][$fieldname]);
+			$row['class'] = ['draggable'];
+		}
+		$rows[] = $row;
+	}
+
+	return theme('table', [
+		'header' => $header,
+		'rows' => $rows,
+		'attributes' => ['id' => $vars['element']['#id'] . '-table'],
+	]);
+}
+
+function cassiopeia_page_build(&$page) {
+	global $user, $theme_key;
+	if (user_has_role(3) && $theme_key == 'cassiopeia_theme') {
+		$page['page_bottom']['c3s_admin_menu'] = [
+			'#markup' => '<div style="position: fixed; top: 40%; left: 10px; background: #ccc; border-radius: 5px; padding: 5px; z-index: 999;">' . l('Quản trị', 'admin/cassiopeia/dashboard') . '</div>',
+		];
+	}
+}
+
+
+// ----- api ------
+
+
+// ----- api core ------
+function _cassiopeia_views_display($view_name, $display_id, $arg = []) {
+	$view = views_get_view($view_name);
+	$output = "";
+	if (!empty($view)) {
+		$output = $view->execute_display($display_id, $arg);
+		if (is_array($output)) {
+			$output = $output['content'];
+		}
+		if (!$output && !count($view->result)) {
+			$output = "";
+		}
+	}
+	return $output;
+}
+
+function _cassiopeia_render_theme($type, $name, $path, $variables = []) {
+	$path_temp = drupal_get_path($type, $name);
+	return theme_render_template($path_temp . "/" . $path, $variables);
+}
+
+
+function _cassiopeia_convert_time_ago($timestamp) {
+	$_output = "";
+	$day = $timestamp / (60 * 60 * 24);
+	if ($day >= 365) {
+		$_output = floor($day % 365) . ' năm trước';
+	}
+	elseif ($day >= 30 && $day < 365) {
+		$_output = floor($day % 30) . ' tháng trước';
+	}
+	elseif ($day >= 1 && $day < 30) {
+		$_output = floor($day % 30) . ' ngày trước';
+	}
+	elseif ($day > 0 && $day < 1) {
+		if ($day * 24 >= 1) {
+			$_output = floor($day * 24) . ' giờ trước';
+		}
+		elseif ($day * 24 * 60 > 1) {
+			$_output = floor($day * 24 * 60) . ' phút trước';
+		}
+		else {
+			$_output = floor($day * 24 * 60 * 60) . ' giây trước';
+		}
+	}
+	return $_output;
+}
+
+function _cassiopeia_load_collections($collections) {
+	$_collection = [];
+	$_collection_ids = [];
+	foreach ($collections as $_key => $_value) {
+		$_collection_ids[] = $_value['value'];
+	}
+	if (!empty($_collection_ids)) {
+		$_collection = entity_load('field_collection_item', $_collection_ids);
+	}
+	return $_collection;
+}
+
+function _cassiopeia_rad($x) {
+	return $x * pi() / 180;
+};
+
+function _cassiopeia_calculate_distance($point_from, $point_to) {
+	$kmdistance = 0;
+	try {
+		$R = 6378137; // Earth’s mean radius in meter
+		$dLat = _cassiopeia_rad($point_from['lat'] - $point_to['lat']);
+		$dLong = _cassiopeia_rad($point_from['lng'] - $point_to['lng']);
+		$a = sin($dLat / 2) * sin($dLat / 2) + cos(_cassiopeia_rad($point_from['lat'])) * cos(_cassiopeia_rad($point_from['lat'])) * sin($dLong / 2) * sin($dLong / 2);
+		$c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+		$kmdistance = $R * $c;
+	} catch (Exception $e) {
+
+	}
+	return $kmdistance;
+}
+
+function cassiopeia_calculate_distance($point_from, $point_to, $key) {
+	$kmdistance = 0;
+	try {
+		$url = 'https://maps.googleapis.com/maps/api/directions/json?origin=' . $point_from['lat'] . ',' . $point_from['lng'] . '&destination=' . $point_to['lat'] . ',' . $point_to['lng'] . '&key=' . $key;
+
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, $url);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_PROXYPORT, 3128);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+		$response = curl_exec($ch);
+		curl_close($ch);
+		$data = json_decode($response, TRUE);
+
+		if ($data['status'] == "OK") {
+			if (!empty($data['routes'][0]['legs'][0]['distance']['value'])) {
+				$kmdistance = $data['routes'][0]['legs'][0]['distance']['value'];
+			}
+			else {
+				$kmdistance = _cassiopeia_calculate_distance($point_from, $point_to);
+			}
+		}
+		else {
+			$kmdistance = _cassiopeia_calculate_distance($point_from, $point_to);
+		}
+	} catch (Exception $e) {
+
+		$kmdistance = _cassiopeia_calculate_distance($point_from, $point_to);
+		throw $e;
+	}
+	return $kmdistance;
+}
+
+function cassiopeia_generate_string($length = 10) {
+	$characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+	$charactersLength = strlen($characters);
+	$randomString = '';
+	for ($i = 0; $i < $length; $i++) {
+		$randomString .= $characters[rand(0, $charactersLength - 1)];
+	}
+	return $randomString;
+}
+
+function cassiopeia_generate_integer($size = 13) {
+	$str = '';
+	$chars = '0123456789';
+	$_chars = '123456789';
+	for ($i = 0; $i < $size; $i++) {
+		if ($i == 0) {
+			$str .= $_chars[rand(0, strlen($_chars) - 1)];
+		}
+		else {
+			$str .= $chars[rand(0, strlen($chars) - 1)];
+		}
+	}
+	return $str;
+};
+
+function replate_text_for_field($text, $replate, $field_data_name, $field_name_value) {
+	$data = db_select($field_data_name, $field_data_name)
+		->fields($field_data_name)
+		->execute()->fetchAll();
+
+	foreach ($data as $item) {
+		$new_value = str_replace($text, $replate, $item->{$field_name_value});
+
+		db_update($field_data_name)
+			->fields([$field_name_value => $new_value])
+			->condition('bundle', $item->bundle, '=')
+			->condition('entity_id', $item->entity_id, '=')
+			->condition('entity_type', $item->entity_type, '=')
+			->execute();
+	}
+}
+
+function cassiopeia_utf8convert($str) {
+	if (!$str) {
+		return FALSE;
+	}
+	$utf8 = [
+		'a' => 'á|à|ả|ã|ạ|ă|ắ|ặ|ằ|ẳ|ẵ|â|ấ|ầ|ẩ|ẫ|ậ|Á|À|Ả|Ã|Ạ|Ă|Ắ|Ặ|Ằ|Ẳ|Ẵ|Â|Ấ|Ầ|Ẩ|Ẫ|Ậ',
+		'd' => 'đ|Đ',
+		'e' => 'é|è|ẻ|ẽ|ẹ|ê|ế|ề|ể|ễ|ệ|É|È|Ẻ|Ẽ|Ẹ|Ê|Ế|Ề|Ể|Ễ|Ệ',
+		'i' => 'í|ì|ỉ|ĩ|ị|Í|Ì|Ỉ|Ĩ|Ị',
+		'o' => 'ó|ò|ỏ|õ|ọ|ô|ố|ồ|ổ|ỗ|ộ|ơ|ớ|ờ|ở|ỡ|ợ|Ó|Ò|Ỏ|Õ|Ọ|Ô|Ố|Ồ|Ổ|Ỗ|Ộ|Ơ|Ớ|Ờ|Ở|Ỡ|Ợ',
+		'u' => 'ú|ù|ủ|ũ|ụ|ư|ứ|ừ|ử|ữ|ự|Ú|Ù|Ủ|Ũ|Ụ|Ư|Ứ|Ừ|Ử|Ữ|Ự',
+		'y' => 'ý|ỳ|ỷ|ỹ|ỵ|Ý|Ỳ|Ỷ|Ỹ|Ỵ',
+	];
+	foreach ($utf8 as $ascii => $uni) {
+		$str = preg_replace("/($uni)/i", $ascii, $str);
+	}
+	return $str;
+}
+
+/**
+ * check and load image
+ */
+function _cassiopeia_load_image($path, $style_image = 'style_default', $attributes = []) {
+	if (!empty($path)) {
+		return theme('image_style', [
+			'path' => $path,
+			'style_name' => $style_image,
+			'attributes' => $attributes,
+		]);
+	}
+	else {
+		return theme('image_style', [
+			'path' => '/default.jpg',
+			'style_name' => $style_image,
+			'attributes' => $attributes,
+		]);
+	}
+}
+
+
+/**
+ * Lấy ảnh từ trang khác
+ */
+function cassiopeia_get_image_web_other() {
+	$path = 'https://www.shs.com.vn/Sites/QuoteVN/SiteRoot/TB ĐĂNG WEB TCTCP Điện tử và tin học VN_001.png';
+
+	$ext = pathinfo($path, PATHINFO_FILENAME);
+	$file_name = pathinfo($path, PATHINFO_FILENAME).'.'.pathinfo($path, PATHINFO_EXTENSION);
+	$file_name_urlencode = drupal_encode_path($file_name);
+	$path = str_replace($file_name, $file_name_urlencode, $path);
+
+	$result = drupal_http_request($path, array(
+	// 'headers' => array(
+	// 	'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+	// ),
+	'method' => 'GET',
+	));
+
+	$file = file_save_data($result->data, 'public://'.$file_name, FILE_EXISTS_REPLACE);
+	return $file;
+}
